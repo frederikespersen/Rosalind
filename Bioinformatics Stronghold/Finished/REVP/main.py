@@ -21,7 +21,7 @@ def locate_palindromes(strand: str, min_length=4, max_length=12) -> dict:
             substrand3 = substrand[half:]
 
             # A palindrome must have the first half of the string be complimentary to the second
-            if substrand5 == mb.coding_strand(substrand3):
+            if substrand5 == mb.complimentary(substrand3):
                 # Returning palindrome position (1-indexed) with length as value
                 palindromes[str(i + 1)] = length
 

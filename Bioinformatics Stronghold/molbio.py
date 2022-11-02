@@ -22,6 +22,7 @@
 #   ~ Frederik Espersen Knudsen, 2022
 #
 ########################################################################################################################
+# ~ TODO: Introduce macromolecule classes
 
 import math
 
@@ -102,15 +103,15 @@ def rna_check(strand: str) -> bool:
     return all([char in rna_nucleobases for char in chars])
 
 
-def coding_strand(template: str) -> str:
+def complimentary(template: str) -> str:
     """
-    Takes a template DNA-strand and returns the coding strand.
+    Takes a template DNA-strand and returns the complimentary (coding) strand.
     Both strings are in 5'-3' polarity.
 
-    :param template: A 5'-3' DNA template strand
-    :return: The complimentary 5'-3' DNA coding strand
+    :param template: A 5'-3' DNA strand
+    :return: The complimentary 5'-3' DNA strand
     """
-    assert dna_check(template), "Invalid DNA strand format! (Can only contain 'A', 'C', 'T', or 'G')"
+    assert dna_check(template), "Invalid DNA strand format! (Can only contain 'A', 'C', 'G', or 'T')"
 
     coding = ''
     # Mapping to complimentary nucleobases and reversing polarity to 5'-3'
@@ -131,7 +132,7 @@ def transcribe(strand: str, template=True) -> str:
     """
     # Getting coding strand
     if template:
-        strand = coding_strand(strand)
+        strand = complimentary(strand)
 
     # Turning coding strand to RNA
     pre_mrna = strand.replace('T', 'U')
@@ -146,39 +147,38 @@ def orfs(mrna: str) -> list:
     :param mrna: A 5'-3' mRNA strand to be searched for ORFs
     :return: A list of all possible open reading frame 5'-3' mRNA substrands
     """
-    assert rna_check(mrna), "Invalid RNA format! (Can only contain 'A', 'C', 'U', or 'G')"
+    assert rna_check(mrna), "Invalid RNA format! (Can only contain 'A', 'C', 'G', or 'U')"
 
     # Looping over all possible reading frames
     orfs = []
     for frame in [mrna[offset:] for offset in [0, 1, 2]]:
 
         # Splitting frame into codons, amino acids
-        codons = [frame[i:i + 3] for i in range(0, len(frame), 3) if i + 3 <= len(frame)]
-        frame_aas = [genetic_code[codon] for codon in codons]
+        frame_codons = [frame[i:i + 3] for i in range(0, len(frame), 3) if i + 3 <= len(frame)]
+        frame_aas = [genetic_code[codon] for codon in frame_codons]
 
         # Identifying orfs by start and stop codons; Assembling codon (not AA) substrings
         frame_orfs = []
         translating = False
-        for aa, codon in zip(frame_aas, codons):
+        for aa, codon in zip(frame_aas, frame_codons):
 
             # Identifying start codons; Initiating an ORF
             if aa == 'M':  # Start codon; Note that there may be several starting codons in one ORF, creating intra-ORFs
                 translating = True
                 frame_orfs = [orf + codon for orf in frame_orfs]
                 frame_orfs.append(codon)
-                continue
 
             # Identifying start codons; Terminating active ORFs
-            if aa == 'Stop':
+            elif aa == 'Stop':
                 translating = False
                 if len(frame_orfs) != 0:
                     orfs += frame_orfs
                     frame_orfs = []
-                continue
 
             # Adding codons to active ORFs
-            if translating:
-                frame_orfs = [orf + codon for orf in frame_orfs]
+            else:
+                if translating:
+                    frame_orfs = [orf + codon for orf in frame_orfs]
 
     return orfs
 
@@ -190,10 +190,10 @@ def translate(orf: str) -> str:
     The peptide will be in N-C polarity.
     [ORF: As-is reading frame - all codons are translated]
 
-    :param orf: An open reading frame of 5'-3' RNA (No Stop-codon)
+    :param orf: An open reading frame of 5'-3' RNA
     :return: The translated N-C peptide
     """
-    assert rna_check(orf), "ORF has invalid RNA format! (Can only contain 'A', 'C', 'U', or 'G')"
+    assert rna_check(orf), "ORF has invalid RNA format! (Can only contain 'A', 'C', 'T', or 'U')"
     leftover = len(orf) % 3
     assert leftover == 0, f"Sequence cannot include unfinished triplets! (sequence is {leftover} nucleobases too long)"
 
@@ -206,8 +206,10 @@ def translate(orf: str) -> str:
 
         # Translating triplet codons by the 'universal' genetic code
         aa = genetic_code[codon]
-        assert aa != 'Stop', f"ORF may not have Stop-codons! (Stop codon at {c_start+1}-{c_start+4} (1-indexed))"
         peptide += aa
+
+    # Removing potential Stop codon if included
+    peptide.replace('Stop', '')
 
     return peptide
 
@@ -237,7 +239,7 @@ def unique_reads(reads: dict) -> dict:
     return unique
 
 
-def contig(reads: dict, rmol: float) -> str:
+def contig(reads: dict, rmol: float, verbose=True) -> str:
     """
     Takes a dict of substrand sequences from a contig (I.e. an overlap is assumed between strands).
     Returns a contig sequence.
@@ -247,6 +249,9 @@ def contig(reads: dict, rmol: float) -> str:
     It defines the minimum overlap needed between strings.
     If no contig is formable, an AssertionError will be raised.
     The contig is not necessarily unique.
+
+    ~ TODO: Rewrite loops; Reset to longest mol after each stitching to secure maximum overlap for each stitch
+    ~ TODO: Evaluate chance of two strands having exact same left/right overlap given a mol; They could each be stitched
 
     :param reads: A dict with keys of strand tags and values of strand sequences with continuous overlap
     :param rmol: The relative minimum overlap length between strands ]0:1]
@@ -260,7 +265,7 @@ def contig(reads: dict, rmol: float) -> str:
     # Extracting strand sequences
     unique = unique_reads(reads)
     non_unique = {k_n: s_n for k_n, s_n in reads.items() if k_n not in unique}
-    if len(non_unique) > 0:
+    if verbose and len(non_unique) > 0:
         print("contig(): Some reads were non-unique and were not used for contig stitching:")
         print(*[f' - {k}: {s}' for k, s in non_unique.items()], sep='\n')
     strands = list(unique.values())
@@ -279,10 +284,13 @@ def contig(reads: dict, rmol: float) -> str:
         if no_strands_i == no_strands_j:
             non_stitching_reads = [k for k, y in unique.items() if y in strands]
             err_1 = "Strand sequences do not overlap sufficiently to stitch a contig!\n"
-            err_2 = "The following sequences cannot be stitched into the contig:\n"
-            err_3 = "\n".join([" - " + k for k in non_stitching_reads])
-            err_4 = f"\nConsider lowering rmol (Currentl rmol = {rmol}) or consider whether strings are part of contig."
-            err_5 = " (See config_rmol_scan())"
+            if verbose:
+                err_2 = "The following sequences cannot be stitched into the contig:\n"
+                err_3 = "\n".join([" - " + k for k in non_stitching_reads])
+                err_4 = f"\nConsider lowering rmol (Current rmol = {rmol}) or consider whether strings are part of contig."
+                err_5 = " (See config_rmol_scan())"
+            else:
+                err_2, err_3, err_4, err_5 = [""]*4
             raise AssertionError(err_1 + err_2 + err_3 + err_4 + err_5)
 
         # Checking number of strands left before doing full general loop
@@ -345,6 +353,8 @@ def contig_rmol_scan(reads: dict, p_stepsize=2) -> (str, float):
     A small rmol may correspond to just a 1 bp overlap.
     Compare the final rmol to the length of the shortest read for a worst-case-scenario reference.
 
+    ~TODO: Evaluate chance of two strands having exact same left/right overlap given a rmol respective to genome sizes
+
     :param reads: See config() for requirements
     :param p_stepsize: The negative log10 stepsize for rmol scan (default 2)
     :return: A tuple of the stitched contig and max rmol value
@@ -386,22 +396,20 @@ def peptide_mass(peptide: str) -> float:
     return round(mass, uncertainty)
 
 
-def locate_continuous_motif(string: str, motif: str, ignore_motif_length=False) -> list:
+def locate_continuous_motif(string: str, motif: str) -> list:
     """
     Locates and returns the starting positions of a motif in a DNA/RNA/Peptide string.
     String and motif polarity must match.
 
     :param string: A DNA/RNA/Peptide string to search in
     :param motif: A -||- motif to search for
-    :param ignore_motif_length: Overrule motif length constraint (Default 'False')
     :return: 1-indexed locations of the motif in the string
     """
-    if not ignore_motif_length:
-        assert len(string) >= len(motif), f"Motif length longer than string length ({len(motif)} > {len(string)})"
+    assert len(string) >= len(motif), f"Motif length longer than string length! ({len(motif)} > {len(string)})"
 
     # Looping over all possible motif locations
     motif_locations = []
-    for i in range(len(string)):
+    for i in range(len(string) - len(motif) + 1):
 
         # Adding absolute motif matches
         if string[i:i + len(motif)] == motif:
@@ -425,14 +433,14 @@ def largest_common_motif(strands: list) -> list:
     # Generating substrings, starting with the largest
     subs = []
     for length in reversed(range(len(short))):
-        for i in range(len(short)-length):
-            sub = short[i:i+length+1]
+        for i in range(len(short) - length + 1):
+            sub = short[i:i + length + 1]
 
             # Checking if substring is universally common
             if all([sub in strand for strand in strands]):
                 subs.append(sub)
 
-        # If at least one match is found, return all motifs found with the same length
+        # If at least one match is found, return all motifs found with that length
         if len(subs) != 0:
             break
 
@@ -441,21 +449,21 @@ def largest_common_motif(strands: list) -> list:
     return motifs
 
 
-def palindromes(strand: str, min_length=4, max_length=12) -> dict:
+def palindromes(strand: str, min_length=4, max_length=12) -> list:
     """
     Locates palindromes in a DNA strand of length within set boundaries.
-    Returns a dict with keys of 1-indexed DNA-positions and values of palindrome length
+    Returns a list of tuples of string 1-indexed DNA-positions and palindrome lengths
 
     :param strand: A DNA strand to search
     :param min_length: The minimum palindrome length (must be even, default 4)
     :param max_length: The maximum palindrome length (must be even, default 12)
-    :return: A dict with 1-indexed position keys and length values
+    :return: A list of tuples of 1-indexed positions and lengths
     """
-    assert dna_check(strand), "Invalid DNA strand format! (Can only contain 'A', 'C', 'T', or 'G')"
+    assert dna_check(strand), "Invalid DNA strand format! (Can only contain 'A', 'C', 'G', or 'T')"
     assert min_length % 2 == 0 and max_length % 2 == 0, "Palindrome lengths must be even!"
 
     # Looping over all palindrome lengths (must be even)
-    palins = {}
+    palins = []
     for length in range(min_length, max_length + 1, 2):
         half = length // 2
 
@@ -468,9 +476,9 @@ def palindromes(strand: str, min_length=4, max_length=12) -> dict:
             substrand3 = substrand[half:]
 
             # A palindrome must have the first half of the strand be complimentary to the second
-            if substrand5 == coding_strand(substrand3):
-                # Returning palindrome position (1-indexed) with length as value
-                palins[str(i + 1)] = length
+            if substrand5 == complimentary(substrand3):
+                # Returning palindrome position (1-indexed) and length
+                palins.append((i + 1, length))
 
     return palins
 
