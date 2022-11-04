@@ -140,7 +140,7 @@ def transcribe(strand: str, template=True) -> str:
     return pre_mrna
 
 
-def orfs(mrna: str) -> list:
+def orfs(mrna: str) -> list[str]:
     """
     Identifies and returns all open reading frames substrands in a mRNA strand.
     All strands are in 5'-3' polarity
@@ -217,7 +217,7 @@ def translate(orf: str) -> str:
 
 
 ##### SEQUENCING
-def unique_reads(reads: dict) -> dict:
+def unique_reads(reads: dict[str]) -> dict[str]:
     """
     Takes a dict of sequence reads.
     Returns unique reads; i.e. reads that are not a subset of other reads in terms of sequence.
@@ -239,7 +239,7 @@ def unique_reads(reads: dict) -> dict:
     return unique
 
 
-def contig(reads: dict, rmol: float, verbose=True) -> str:
+def contig(reads: dict[str], rmol: float, verbose=True) -> str:
     """
     Takes a dict of substrand sequences from a contig (I.e. an overlap is assumed between strands).
     Returns a contig sequence.
@@ -344,7 +344,7 @@ def contig(reads: dict, rmol: float, verbose=True) -> str:
     return contig
 
 
-def contig_rmol_scan(reads: dict, p_stepsize=2) -> (str, float):
+def contig_rmol_scan(reads: dict[str], p_stepsize=2) -> tuple[str, float]:
     """
     Scans the contig() function for the first succesfull rmol value.
     Scanning occurs with a set stepsize.
@@ -396,7 +396,7 @@ def peptide_mass(peptide: str) -> float:
     return round(mass, uncertainty)
 
 
-def locate_continuous_motif(string: str, motif: str) -> list:
+def locate_continuous_motif(string: str, motif: str) -> list[int]:
     """
     Locates and returns the starting positions of a motif in a DNA/RNA/Peptide string.
     String and motif polarity must match.
@@ -418,7 +418,7 @@ def locate_continuous_motif(string: str, motif: str) -> list:
     return motif_locations
 
 
-def largest_common_motif(strands: list) -> list:
+def largest_common_motif(strands: list[str]) -> list[str]:
     """
     Finds the longest common motif among the given DNA/RNA/Peptide strands.
     The longest common motif may not be unique; A list of all largest common motifs of the same length is returned.
@@ -449,7 +449,7 @@ def largest_common_motif(strands: list) -> list:
     return motifs
 
 
-def palindromes(strand: str, min_length=4, max_length=12) -> list:
+def palindromes(strand: str, min_length=4, max_length=12) -> list[tuple[int, int]]:
     """
     Locates palindromes in a DNA strand of length within set boundaries.
     Returns a list of tuples of string 1-indexed DNA-positions and palindrome lengths
@@ -487,7 +487,7 @@ def palindromes(strand: str, min_length=4, max_length=12) -> list:
 
 ##### FILE HANDLING
 
-def parse_fasta(filename: str) -> dict:
+def parse_fasta(filename: str) -> dict[str]:
     """
     Parses a FASTA file to a dict.
 
