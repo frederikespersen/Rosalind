@@ -1,2 +1,2 @@
 # Rosalind
-Solutions to Rosalind [problems](https://rosalind.info/problems/tree-view/) for bioinformatics
+Solutions to Rosalind [exercises](https://rosalind.info/problems/tree-view/) for bioinformatics
