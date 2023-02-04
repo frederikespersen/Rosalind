@@ -1,3 +1,4 @@
+
 ########################################################################################################################
 #
 #
@@ -113,10 +114,8 @@ def complimentary(template: str) -> str:
     """
     assert dna_check(template), "Invalid DNA strand format! (Can only contain 'A', 'C', 'G', or 'T')"
 
-    coding = ''
     # Mapping to complimentary nucleobases and reversing polarity to 5'-3'
-    for nb in template[::-1]:
-        coding += dna_complimentary_nb[nb]
+    coding = str(map(lambda nb: dna_complimentary_nb[nb], template[::-1]))
 
     return coding
 
